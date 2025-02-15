@@ -116,7 +116,7 @@ func (mod *module) OpenWithOptions(driverID sobek.Value, connectionString string
 	rt := mod.vu.Runtime()
 	connOptions, err := parseOptions(rt, c)
 	if err != nil {
-		common.Throw(rt, fmt.Errorf("Open expects connection options as it's argument", err))
+		common.Throw(rt, fmt.Errorf("Open expects connection options as it's argument %w", err))
 	}
 
 	database, err := mod.Open(driverID, connectionString)
