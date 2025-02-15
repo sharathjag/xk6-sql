@@ -3,7 +3,17 @@ import sql from "k6/x/sql";
 // the actual database driver should be used instead of ramsql
 import driver from "k6/x/sql/driver/ramsql";
 
-const db = sql.open(driver, "roster_db");
+export const options = {
+  vus: 10,
+};
+
+// const BASE_URL = `http://localhost:3100`;
+// const conn_options = new sql.connOptions("3s", "3s", 1, 1);
+const conn_options = new sql.connOptions({
+  ConnMaxLifetime: "3s",
+  ConnMaxIdleTime: "3s",
+});
+const db = sql.openWithOptions(driver, "roster_db", conn_options);
 
 export function setup() {
   db.exec(`

@@ -5,3 +5,4 @@
 /node_modules
 yarn.lock
 bun.lockb
+k6-with-sql
