@@ -2,6 +2,7 @@
 package sql
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -57,6 +58,10 @@ type connectOptions struct {
 	MaxIdleConns    *int           `json:"MaxIdleConns,omitempty"`
 }
 
+type timeoutContext struct {
+	timeoutDuration time.Duration
+}
+
 // Exports is representation of ESM exports of a module.
 func (mod *module) Exports() modules.Exports {
 	return mod.exports
@@ -72,11 +77,6 @@ type KeyValue map[string]interface{}
 func (mod *module) ConnOptions(c sobek.ConstructorCall) *sobek.Object {
 	rt := mod.vu.Runtime()
 	options := &connectOptions{}
-	// 	ConnMaxLifetime: &connMaxLifeTime,
-	// 	// ConnMaxIdleTime: defaultConnMaxIdleTime,
-	// 	// MaxOpenConns:    defaultMaxConnections,
-	// 	// MaxIdleConns:    defaultMaxConnections,
-	// }
 
 	if len(c.Arguments) > 1 || c.Argument(0).ExportType().Kind() == reflect.String {
 		if err := mod.parsePositionalOptions(c, options); err != nil {
@@ -88,6 +88,22 @@ func (mod *module) ConnOptions(c sobek.ConstructorCall) *sobek.Object {
 		}
 	}
 
+	return rt.ToValue(options).ToObject(rt)
+}
+
+func (mod *module) TimeoutContext(c sobek.ConstructorCall) *sobek.Object {
+	rt := mod.vu.Runtime()
+	options := &timeoutContext{}
+
+	if len(c.Arguments) != 1 || c.Argument(0).ExportType().Kind() != reflect.String {
+		common.Throw(rt, fmt.Errorf("time duration represented as a string (Example: 3s), is necessary for creating timeout context"))
+	}
+
+	timeoutDuration, err := time.ParseDuration(c.Argument(0).String())
+	if err != nil {
+		common.Throw(rt, fmt.Errorf("failed to parse timeout duration string: %w", err))
+	}
+	options.timeoutDuration = timeoutDuration
 	return rt.ToValue(options).ToObject(rt)
 }
 
@@ -208,9 +224,8 @@ type Database struct {
 	db *sql.DB
 }
 
-// Query executes a query that returns rows, typically a SELECT.
-func (dbase *Database) Query(query string, args ...interface{}) ([]KeyValue, error) {
-	rows, err := dbase.db.Query(query, args...)
+func (dbase *Database) queryWithContext(ctx context.Context, query string, args ...interface{}) ([]KeyValue, error) {
+	rows, err := dbase.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -251,9 +266,70 @@ func (dbase *Database) Query(query string, args ...interface{}) ([]KeyValue, err
 	return result, nil
 }
 
+// Query executes a query that returns rows, typically a SELECT.
+func (dbase *Database) Query(query string, args ...interface{}) ([]KeyValue, error) {
+	// rows, err := dbase.db.Query(query, args...)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// defer func() {
+	// 	_ = rows.Close()
+	// }()
+	// if rows.Err() != nil {
+	// 	return nil, rows.Err()
+	// }
+
+	// cols, err := rows.Columns()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// values := make([]interface{}, len(cols))
+	// valuePtrs := make([]interface{}, len(cols))
+	// result := make([]KeyValue, 0)
+
+	// for rows.Next() {
+	// 	for i := range values {
+	// 		valuePtrs[i] = &values[i]
+	// 	}
+
+	// 	err = rows.Scan(valuePtrs...)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	data := make(KeyValue, len(cols))
+	// 	for i, colName := range cols {
+	// 		data[colName] = *valuePtrs[i].(*interface{}) //nolint:forcetypeassert
+	// 	}
+	// 	result = append(result, data)
+	// }
+
+	// return result, nil
+	ctx := context.Background()
+	return dbase.queryWithContext(ctx, query, args...)
+}
+
+// Query with timeout, executes a query that returns rows, typically a SELECT.
+func (dbase *Database) QueryContext(timeoutContext *timeoutContext, query string, args ...interface{}) ([]KeyValue, error) {
+	ctx := context.Background()
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeoutContext.timeoutDuration)
+	defer cancel()
+	return dbase.queryWithContext(ctxWithTimeout, query, args...)
+}
+
 // Exec a query without returning any rows.
 func (dbase *Database) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return dbase.db.Exec(query, args...)
+}
+
+// Exec a query timeout without returning any rows.
+func (dbase *Database) ExecContext(timeoutContext *timeoutContext, query string, args ...interface{}) (sql.Result, error) {
+	ctx := context.Background()
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeoutContext.timeoutDuration)
+	defer cancel()
+	return dbase.db.ExecContext(ctxWithTimeout, query, args...)
 }
 
 // Close the database and prevents new queries from starting.

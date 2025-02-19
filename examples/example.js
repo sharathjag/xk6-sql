@@ -7,16 +7,16 @@ export const options = {
   vus: 10,
 };
 
-// const BASE_URL = `http://localhost:3100`;
 // const conn_options = new sql.connOptions("3s", "3s", 1, 1);
 const conn_options = new sql.connOptions({
   ConnMaxLifetime: "3s",
   ConnMaxIdleTime: "3s",
 });
 const db = sql.openWithOptions(driver, "roster_db", conn_options);
+const query_timeout = sql.timeoutContext("3s")
 
 export function setup() {
-  db.exec(`
+  db.execContext(query_timeout, `
     CREATE TABLE IF NOT EXISTS roster
       (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +31,7 @@ export function teardown() {
 }
 
 export default function () {
-  let result = db.exec(`
+  let result = db.execContext(query_timeout, `
     INSERT INTO roster
       (given_name, family_name)
     VALUES
@@ -42,7 +42,7 @@ export default function () {
   `);
   console.log(`${result.rowsAffected()} rows inserted`);
 
-  let rows = db.query("SELECT * FROM roster WHERE given_name = $1;", "Peter");
+  let rows = db.queryContext(query_timeout, "SELECT * FROM roster WHERE given_name = $1;", "Peter");
   for (const row of rows) {
     console.log(`${row.family_name}, ${row.given_name}`);
   }
