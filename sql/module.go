@@ -268,47 +268,7 @@ func (dbase *Database) queryWithContext(ctx context.Context, query string, args 
 
 // Query executes a query that returns rows, typically a SELECT.
 func (dbase *Database) Query(query string, args ...interface{}) ([]KeyValue, error) {
-	// rows, err := dbase.db.Query(query, args...)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// defer func() {
-	// 	_ = rows.Close()
-	// }()
-	// if rows.Err() != nil {
-	// 	return nil, rows.Err()
-	// }
-
-	// cols, err := rows.Columns()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// values := make([]interface{}, len(cols))
-	// valuePtrs := make([]interface{}, len(cols))
-	// result := make([]KeyValue, 0)
-
-	// for rows.Next() {
-	// 	for i := range values {
-	// 		valuePtrs[i] = &values[i]
-	// 	}
-
-	// 	err = rows.Scan(valuePtrs...)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// 	data := make(KeyValue, len(cols))
-	// 	for i, colName := range cols {
-	// 		data[colName] = *valuePtrs[i].(*interface{}) //nolint:forcetypeassert
-	// 	}
-	// 	result = append(result, data)
-	// }
-
-	// return result, nil
-	ctx := context.Background()
-	return dbase.queryWithContext(ctx, query, args...)
+	return dbase.queryWithContext(context.Background(), query, args...)
 }
 
 // Query with timeout, executes a query that returns rows, typically a SELECT.
